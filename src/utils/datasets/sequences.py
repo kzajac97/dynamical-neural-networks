@@ -1,0 +1,76 @@
+from typing import Optional
+
+import numpy as np
+
+
+def split(
+    outputs: np.array,
+    inputs: Optional[np.array] = None,
+    *,
+    forward_input_window_size: int = 0,
+    backward_input_window_size: int = 0,
+    forward_output_window_size: int = 0,
+    backward_output_window_size: int = 0,
+    shift: int = 1,
+    forward_input_mask: int = 0,
+    backward_input_mask: int = 0,
+    forward_output_mask: int = 0,
+    backward_output_mask: int = 0,
+):
+    """
+    Utility function for generating input-output pairs for dynamical system identification algorithms.
+    It supports generating inputs for both simulation and predictive modelling,
+    Definitions of those in dynamical system identification can be found in https://arxiv.org/abs/1902.00683
+
+    This function assumes 2D inputs with shape (TIME_STEPS, STATE_DIMENSIONS)
+    and generates 3D outputs with shape (BATCH, TIME_STEPS, STATE_DIMENSIONS)
+
+    It does not do any validation of its arguments, which should be handled by interfaces for different modes
+    of sequences slicing, for more details see `src.utils.datasets.interfaces.py`
+
+    :param outputs: array of outputs to the dynamical system, time-series of system state measurements
+    :param inputs: array of inputs to the dynamical system, time-series of forcing measurements
+    :param forward_input_window_size: number of input (forcing) measurements to include forward from prediction start
+    :param backward_input_window_size: number of input (forcing)  measurements to include forward from prediction start
+    :param forward_output_window_size: number of output (state) measurements to include forward from prediction start
+    :param backward_output_window_size: number of output (state) measurements to include before the prediction start
+    :param shift: number of samples to move the prediction starting point, can generate overlapping samples
+    :param forward_input_mask: number of masked samples for forward inputs (forcing)
+    :param backward_input_mask: number of masked samples for backward inputs (forcing)
+    :param forward_output_mask: number of masked samples for forward outputs (states)
+    :param backward_output_mask: number of masked samples for backward outputs (states)
+
+    :return: dict with numpy array of generated time-series slices
+    """
+    results = {
+        "backward_inputs": [],
+        "backward_outputs": [],
+        "forward_inputs": [],
+        "forward_outputs": [],
+    }
+
+    def sample_forward(values: np.array, current_index: int, window_size: int, mask: int):
+        return values[current_index + mask : current_index + window_size, :]
+
+    def sample_backward(values: np.array, current_index: int, window_size: int, mask: int):
+        return values[current_index - window_size : current_index - mask, :]
+
+    max_backward_size = max(backward_input_window_size, backward_output_window_size)
+    for index in list(range(max_backward_size, len(outputs)))[::shift]:
+        if index + forward_output_window_size > len(outputs):
+            break  # break when window size longer than input
+
+        if forward_input_window_size > 0:
+            samples = sample_forward(inputs, index, window_size=forward_input_window_size, mask=forward_input_mask)
+            results["forward_inputs"].append(samples)
+        if backward_input_window_size > 0:
+            samples = sample_backward(inputs, index, window_size=backward_input_window_size, mask=backward_input_mask)
+            results["backward_inputs"].append(samples)
+        if forward_output_window_size > 0:
+            samples = sample_forward(outputs, index, window_size=forward_output_window_size, mask=forward_output_mask)
+            results["forward_outputs"].append(samples)
+        if backward_output_window_size > 0:
+            samples = sample_backward(outputs, index, window_size=backward_output_window_size, mask=backward_output_mask)
+            results["backward_outputs"].append(samples)
+
+    return {key: np.asarray(values) for key, values in results.items()}
