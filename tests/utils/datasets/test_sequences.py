@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import pytest
 
@@ -376,7 +374,7 @@ def test_simulation_split_with_output_masking(
 
 
 @pytest.mark.parametrize(
-    "inputs, outputs, shift, forward_input_window_size, backward_input_window_size, forward_output_window_size, backward_output_window_size, expected_results",
+    "inputs, outputs, shift, forward_input_window_size, backward_input_window_size, forward_output_window_size, backward_output_window_size, expected_results",  # noqa
     [
         (
             -1 * np.arange(12),  # inputs
@@ -428,7 +426,7 @@ def test_simulation_split_with_output_masking(
 def test_simulation_split_with_backward_states_as_aux_input(
     inputs: np.array,
     outputs: np.array,
-    shift: Optional[int],
+    shift: int,
     forward_input_window_size: int,
     backward_input_window_size: int,
     forward_output_window_size: int,

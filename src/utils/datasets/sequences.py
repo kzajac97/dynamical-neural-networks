@@ -50,16 +50,17 @@ def split(
     }
 
     def sample_forward(values: np.array, current_index: int, window_size: int, mask: int):
-        return values[current_index + mask : current_index + window_size, :]
+        return values[current_index + mask : current_index + window_size, :]  # noqa
 
     def sample_backward(values: np.array, current_index: int, window_size: int, mask: int):
-        return values[current_index - window_size : current_index - mask, :]
+        return values[current_index - window_size : current_index - mask, :]  # noqa
 
     max_backward_size = max(backward_input_window_size, backward_output_window_size)
     for index in list(range(max_backward_size, len(outputs)))[::shift]:
         if index + forward_output_window_size > len(outputs):
             break  # break when window size longer than input
 
+        # fmt: off
         if forward_input_window_size > 0:
             samples = sample_forward(inputs, index, window_size=forward_input_window_size, mask=forward_input_mask)
             results["forward_inputs"].append(samples)
@@ -70,7 +71,8 @@ def split(
             samples = sample_forward(outputs, index, window_size=forward_output_window_size, mask=forward_output_mask)
             results["forward_outputs"].append(samples)
         if backward_output_window_size > 0:
-            samples = sample_backward(outputs, index, window_size=backward_output_window_size, mask=backward_output_mask)
+            samples = sample_backward(outputs, index, window_size=backward_output_window_size, mask=backward_output_mask)  # noqa
             results["backward_outputs"].append(samples)
+        # fmt: on
 
     return {key: np.asarray(values) for key, values in results.items()}
