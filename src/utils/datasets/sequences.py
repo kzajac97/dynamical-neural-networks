@@ -1,9 +1,22 @@
-from typing import Optional
+from typing import Optional, Sequence, Union
 
 import numpy as np
 
 
-def split(
+def time_series_train_test_split(sequence: Sequence, test_size: Union[int, float]) -> tuple[Sequence, Sequence]:
+    """
+    Splits time series into test and train set
+
+    :param sequence: sequence containing time series measurements
+    :param test_size: test size, given as fraction or number of samples
+
+    :return: two sequences containing train and test data respectively
+    """
+    first_test_index = len(sequence) - test_size if test_size > 1 else int((1 - test_size) * len(sequence))
+    return sequence[:first_test_index], sequence[first_test_index:]
+
+
+def generate_time_series_windows(
     outputs: np.array,
     inputs: Optional[np.array] = None,
     *,
@@ -42,7 +55,7 @@ def split(
 
     :return: dict with numpy array of generated time-series slices
     """
-    results = {
+    sequences = {
         "backward_inputs": [],
         "backward_outputs": [],
         "forward_inputs": [],
@@ -63,16 +76,16 @@ def split(
         # fmt: off
         if forward_input_window_size > 0:
             samples = sample_forward(inputs, index, window_size=forward_input_window_size, mask=forward_input_mask)
-            results["forward_inputs"].append(samples)
+            sequences["forward_inputs"].append(samples)
         if backward_input_window_size > 0:
             samples = sample_backward(inputs, index, window_size=backward_input_window_size, mask=backward_input_mask)
-            results["backward_inputs"].append(samples)
+            sequences["backward_inputs"].append(samples)
         if forward_output_window_size > 0:
             samples = sample_forward(outputs, index, window_size=forward_output_window_size, mask=forward_output_mask)
-            results["forward_outputs"].append(samples)
+            sequences["forward_outputs"].append(samples)
         if backward_output_window_size > 0:
             samples = sample_backward(outputs, index, window_size=backward_output_window_size, mask=backward_output_mask)  # noqa
-            results["backward_outputs"].append(samples)
+            sequences["backward_outputs"].append(samples)
         # fmt: on
 
-    return {key: np.asarray(values) for key, values in results.items()}
+    return {key: np.asarray(values) for key, values in sequences.items()}

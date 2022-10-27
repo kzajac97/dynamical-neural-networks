@@ -1,7 +1,29 @@
+from typing import Sequence, Union
+
 import numpy as np
 import pytest
 
-from src.utils.datasets.sequences import split
+from src.utils.datasets.sequences import generate_time_series_windows, time_series_train_test_split
+
+
+@pytest.mark.parametrize(
+    "sequence, test_size, expected_train_size, expected_test_size",
+    [
+        (np.arange(100), 0.5, 50, 50),
+        (list(range(100)), 0.5, 50, 50),
+        (np.arange(100), 0.3, 70, 30),
+        (np.arange(100), 56, 44, 56),
+        (np.arange(100), 28, 72, 28),
+        (np.arange(300).reshape(100, 3), 0.4, 60, 40),
+    ],
+)
+def test_time_series_train_test_split(
+    sequence: Sequence, test_size: Union[int, float], expected_train_size: int, expected_test_size: int
+):
+    train_sequence, test_sequence = time_series_train_test_split(sequence, test_size)
+
+    assert len(train_sequence) == expected_train_size
+    assert len(test_sequence) == expected_test_size
 
 
 @pytest.mark.parametrize(
@@ -35,7 +57,9 @@ def test_predictive_split_with_unit_window(
 ):
     """Tests split function when configured for predictive modelling with unit window"""
     values = np.expand_dims(values, axis=-1)
-    results = split(outputs=values, forward_output_window_size=1, backward_output_window_size=1, shift=shift)
+    results = generate_time_series_windows(
+        outputs=values, forward_output_window_size=1, backward_output_window_size=1, shift=shift
+    )
 
     np.testing.assert_array_equal(results["backward_outputs"], expected_features)
     np.testing.assert_array_equal(results["forward_outputs"], expected_targets)
@@ -124,7 +148,9 @@ def test_predictive_split_with_long_window(
 ):
     """Tests split function when configured for predictive modelling with unit window"""
     values = np.expand_dims(values, axis=-1)
-    results = split(outputs=values, forward_output_window_size=3, backward_output_window_size=3, shift=shift)
+    results = generate_time_series_windows(
+        outputs=values, forward_output_window_size=3, backward_output_window_size=3, shift=shift
+    )
 
     np.testing.assert_array_equal(results["backward_outputs"], expected_features)
     np.testing.assert_array_equal(results["forward_outputs"], expected_targets)
@@ -172,7 +198,7 @@ def test_predictive_split_with_uneven_window(
     For this use-case shift should be equal to forward_window_size so model does not predict the same datapoint twice
     """
     values = np.expand_dims(values, axis=-1)
-    results = split(
+    results = generate_time_series_windows(
         outputs=values,
         forward_output_window_size=forward_window_size,
         backward_output_window_size=backward_window_size,
@@ -360,7 +386,7 @@ def test_simulation_split_with_output_masking(
 ):
     """Tests simulation modelling use-case including output masking"""
     values = np.expand_dims(values, axis=-1)
-    results = split(
+    results = generate_time_series_windows(
         inputs=values,
         outputs=values,
         forward_input_window_size=input_window_size,
@@ -437,7 +463,7 @@ def test_simulation_split_with_backward_states_as_aux_input(
     inputs = np.expand_dims(inputs, axis=-1)
     outputs = np.expand_dims(outputs, axis=-1)
 
-    results = split(
+    results = generate_time_series_windows(
         inputs=inputs,
         outputs=outputs,
         forward_input_window_size=forward_input_window_size,
