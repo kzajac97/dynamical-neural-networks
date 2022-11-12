@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install flake8
+      - name: Install isort
         run: pip install isort==5.10.1
       - name: Run isort
         run: isort . -l 120 --check
