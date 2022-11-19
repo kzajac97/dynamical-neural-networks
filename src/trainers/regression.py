@@ -3,8 +3,9 @@ from typing import Any, Callable, Iterable, Tuple
 
 import torch.nn
 
-from src.experiment.callbacks import CallbackParameters
+from src.trainers.callbacks import BaseCallback, CallbackParameters
 from src.utils.exceptions import StopTraining
+from src.utils.types import PrintFunction
 
 
 class TimeSeriesRegressionTrainer:
@@ -20,22 +21,25 @@ class TimeSeriesRegressionTrainer:
         model: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         loss_function: torch.nn.modules.loss._Loss,
-        config: dict[str, Any],
+        callbacks: list[BaseCallback],
+        n_epochs: int,
         device: str = "cpu",
-        print_fn: Callable[[str], None] = print,
+        print_fn: PrintFunction = print,
     ):
         """
         :param model: model to train
         :param optimizer: optimizer to use for training
         :param loss_function: loss function
-        :param config: training configuration dict
+        :param callbacks:
+        :param n_epochs:
         :param device: torch device, can be `cuda` or `cpu`
         :param print_fn: function to log information about training state, defaults to standard print
         """
-        self.model = model
+        self.model = model.to(device)
         self.optimizer = optimizer
         self.loss_function = loss_function
-        self.config = config
+        self.callbacks = callbacks
+        self.n_epochs = n_epochs
         self.device = device
         self.print_fn = print_fn
 
@@ -69,12 +73,12 @@ class TimeSeriesRegressionTrainer:
             self.optimizer.step()
 
     def callback_loop(self, parameters: CallbackParameters) -> None:
-        for callback in self.config["callbacks"]:
+        for callback in self.callbacks:
             callback(**dataclasses.asdict(parameters))
 
     def train(self, data_loader: Iterable) -> torch.nn.Module:
         try:
-            for epoch in range(self.config["n_epochs"]):
+            for epoch in range(self.n_epochs):
                 self.train_epoch(data_loader)
                 targets, predictions = self.predict(data_loader)  # evaluate using training data to log metrics
 

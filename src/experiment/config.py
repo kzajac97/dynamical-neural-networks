@@ -5,6 +5,7 @@ import torch
 
 from src.trainers import callbacks
 
+
 TORCH_OPTIMIZERS = MappingProxyType(
     {
         "adadelta": torch.optim.Adadelta,
