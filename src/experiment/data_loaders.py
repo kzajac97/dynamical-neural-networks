@@ -122,9 +122,7 @@ class TorchTimeSeriesCsvDataLoader:
         tensors = [torch.from_numpy(window).to(self.dtype) for window in train_windows.values() if len(window) != 0]
 
         return torch.utils.data.DataLoader(
-            torch.utils.data.TensorDataset(*tensors),
-            batch_size=self.batch_size,
-            shuffle=True
+            torch.utils.data.TensorDataset(*tensors), batch_size=self.batch_size, shuffle=True
         )
 
     def get_test_data(self) -> Iterable:
@@ -136,7 +134,5 @@ class TorchTimeSeriesCsvDataLoader:
         tensors = [torch.from_numpy(window).to(self.dtype) for window in test_windows.values() if len(window) != 0]
 
         return torch.utils.data.DataLoader(
-            torch.utils.data.TensorDataset(*tensors),
-            batch_size=self.batch_size,
-            shuffle=False
+            torch.utils.data.TensorDataset(*tensors), batch_size=self.batch_size, shuffle=False
         )

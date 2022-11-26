@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import torch
 
-import wandb
 from src import utils
 from src.metrics.regression import regression_score
 from src.utils.exceptions import StopTraining
@@ -171,34 +170,6 @@ class RegressionReportCallback(BaseCallback):
 
         metrics = regression_score(y_true=targets, y_pred=predictions)
         self.print_fn(f"Epoch: {epoch}{self.separator * self.width}{self._format_metrics(metrics[self.metric_names])}")
-
-
-class WandbLoggingCallback(BaseCallback):
-    """Callback prints regression metrics at each epoch"""
-
-    def __init__(
-        self,
-        run_frequency: int = 1,
-        print_fn: Callable[[str], None] = print,
-        metric_names: Optional[list[str]] = slice(None),
-    ):
-        """
-        :param run_frequency: run frequency in epochs, defaults to 1
-        :param print_fn: function to print metrics, defaults to print but loggers or file streams can be used as well
-        :param metric_names: Metrics to log, if None logs all regression metrics (see `src.metrics.regression`)
-        """
-        super().__init__(run_frequency)
-
-        self.print_fn = print_fn
-        self.metric_names = metric_names
-
-    def run(self, epoch: int, targets: torch.Tensor, predictions: torch.Tensor, **kwargs) -> None:
-        """Prints all regression metrics as each epoch"""
-        targets = utils.tensors.torch_to_flat_array(targets)
-        predictions = utils.tensors.torch_to_flat_array(predictions)
-
-        metrics = regression_score(y_true=targets, y_pred=predictions)
-        wandb.log(metrics.to_dict())
 
 
 class TorchCheckpointCallback(BaseCallback):

@@ -1,7 +1,10 @@
 from typing import Any, Optional
 
 
-def filter_dict(function: Optional[callable], d: dict) -> dict:
+def filter_dict(
+    function: Optional[callable],
+    d: dict,
+) -> dict:
     """Filters dict based on values"""
 
     def default_function(value: Any) -> bool:
