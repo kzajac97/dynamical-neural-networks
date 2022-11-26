@@ -1,6 +1,6 @@
 import pytest
 
-from src.experiment.callbacks import EarlyStoppingCallback
+from src.trainers.callbacks import EarlyStoppingCallback
 
 
 @pytest.mark.parametrize(

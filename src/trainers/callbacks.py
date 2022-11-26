@@ -8,7 +8,6 @@ from typing import Any, Callable, Optional
 import numpy as np
 import pandas as pd
 import torch
-import wandb
 
 import wandb
 from src import utils
