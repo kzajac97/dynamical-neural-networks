@@ -11,10 +11,8 @@ from src.utils.datasets.sequences import generate_time_series_windows, time_seri
 from src.utils.iterables import filter_dict
 
 
-class DataLoaderInterface(ABC):
+class AbstractDataLoader(ABC):
     """Interface for DataLoader"""
-    def __iter__(self) -> Tuple[torch.Tensor, torch.Tensor]:
-        ...
 
     @classmethod
     @abstractmethod
@@ -30,7 +28,7 @@ class DataLoaderInterface(ABC):
         ...
 
 
-class TorchTimeSeriesCsvDataLoader:
+class TorchTimeSeriesCsvDataLoader(AbstractDataLoader):
     def __init__(
         self,
         dataset_path: Path,
@@ -60,7 +58,7 @@ class TorchTimeSeriesCsvDataLoader:
         self.window_generation_config = window_generation_config
 
     @classmethod
-    def from_config(cls):
+    def from_config(cls, config: dict[str, Any]):
         # TODO: Implement as required by SweepRunner
         ...
 
@@ -107,16 +105,10 @@ class TorchTimeSeriesCsvDataLoader:
 
         return generate_time_series_windows(**filter_dict(None, parameters))
 
-    @staticmethod
-    def expand_array(array: np.array) -> np.array:
-        """Expands array to 3D if used dataset contains only single dimension"""
-        if array.ndim == 1:
-            return np.expand_dims(array, axis=-1)
-
     def get_training_data(self) -> Iterable:
         """Generates training data and returns torch DataLoader"""
-        inputs = self.expand_array(self.train_dataset[self.input_columns].values) if self.input_columns else None
-        outputs = self.expand_array(self.train_dataset[self.output_columns])
+        inputs = self.train_dataset[self.input_columns].values if self.input_columns else None
+        outputs = self.train_dataset[self.output_columns].values
 
         train_windows = self.generate_windows(inputs, outputs)
         tensors = [torch.from_numpy(window).to(self.dtype) for window in train_windows.values() if len(window) != 0]
@@ -127,8 +119,8 @@ class TorchTimeSeriesCsvDataLoader:
 
     def get_test_data(self) -> Iterable:
         """Generates training data and returns torch DataLoader"""
-        inputs = self.test_dataset[self.input_columns] if self.input_columns else None
-        outputs = self.test_dataset[self.output_columns]
+        inputs = self.test_dataset[self.input_columns].values if self.input_columns else None
+        outputs = self.test_dataset[self.output_columns].values
 
         test_windows = self.generate_windows(inputs, outputs)
         tensors = [torch.from_numpy(window).to(self.dtype) for window in test_windows.values() if len(window) != 0]
