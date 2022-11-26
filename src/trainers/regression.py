@@ -1,5 +1,6 @@
 import dataclasses
-from typing import Any, Callable, Iterable, Tuple
+from timeit import default_timer as timer
+from typing import Iterable, Tuple
 
 import torch.nn
 
@@ -42,6 +43,7 @@ class TimeSeriesRegressionTrainer:
         self.n_epochs = n_epochs
         self.device = device
         self.print_fn = print_fn
+        self.training_summary = {}
 
     def predict(self, data_loader: Iterable) -> Tuple[torch.Tensor, torch.Tensor]:
         self.model.eval()
@@ -78,6 +80,7 @@ class TimeSeriesRegressionTrainer:
 
     def train(self, data_loader: Iterable) -> torch.nn.Module:
         try:
+            start_time = timer()
             for epoch in range(self.n_epochs):
                 self.train_epoch(data_loader)
                 targets, predictions = self.predict(data_loader)  # evaluate using training data to log metrics
@@ -94,7 +97,11 @@ class TimeSeriesRegressionTrainer:
                 )
 
         except StopTraining:
+            end_time = timer()
+            self.training_summary = {"epochs": epoch, "training_time": end_time - start_time}
             self.print_fn(f"Stopping training at {epoch}...")
             return self.model
 
+        end_time = timer()
+        self.training_summary = {"epochs": epoch, "training_time": end_time - start_time}
         return self.model
