@@ -1,6 +1,6 @@
 import dataclasses
 from timeit import default_timer as timer
-from typing import Iterable, Tuple
+from typing import Iterable, Optional, Tuple
 
 import torch.nn
 
@@ -78,12 +78,17 @@ class TimeSeriesRegressionTrainer:
         for callback in self.callbacks:
             callback(**dataclasses.asdict(parameters))
 
-    def train(self, data_loader: Iterable) -> torch.nn.Module:
+    def train(self, data_loader: Iterable, validation_data_loader: Optional[Iterable] = None) -> torch.nn.Module:
         try:
             start_time = timer()
             for epoch in range(self.n_epochs):
                 self.train_epoch(data_loader)
-                targets, predictions = self.predict(data_loader)  # evaluate using training data to log metrics
+
+                if validation_data_loader:
+                    targets, predictions = self.predict(validation_data_loader)
+                else:
+                    # evaluate using training data when validation data not given
+                    targets, predictions = self.predict(data_loader)
 
                 self.callback_loop(
                     parameters=CallbackParameters(

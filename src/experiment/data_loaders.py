@@ -3,7 +3,6 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Iterable, Optional, Sequence, Tuple, Union
 
-import numpy as np
 import pandas as pd
 import torch.utils.data
 

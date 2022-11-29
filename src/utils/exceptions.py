@@ -1,2 +1,6 @@
 class StopTraining(StopIteration):
     ...
+
+
+class StopSweep(StopIteration):
+    ...
