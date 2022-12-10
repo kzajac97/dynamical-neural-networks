@@ -11,3 +11,8 @@ def filter_dict(function: Optional[callable], d: dict) -> dict:
         function = default_function
 
     return {key: value for key, value in d.items() if function(value)}
+
+
+def collect_keys_with_prefix(parameters: dict[str, Any], prefix: str) -> dict[str, Any]:
+    """Returns subset of dict key-value pairs with keys starting with corresponding prefix"""
+    return {key: value for key, value in parameters.items() if key.startswith(prefix)}
