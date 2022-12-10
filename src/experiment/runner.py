@@ -8,6 +8,7 @@ import yaml
 
 from src.experiment.config import build_callbacks, build_checkpoints, build_loss_function, build_optimizer
 from src.experiment.data_loaders import AbstractDataLoader
+from src.experiment.reporters import ReporterList
 from src.trainers.regression import TimeSeriesRegressionTrainer
 from src.utils import types
 from src.utils.exceptions import StopSweep
@@ -20,13 +21,13 @@ class SweepRunner:
         config: dict[str, Any],
         model_from_parameters: types.TorchParameterizedModel,
         data_loader: AbstractDataLoader,
-        reporter: types.TorchReportFunction,
+        reporters: ReporterList,
         print_fn: types.PrintFunction = print,
     ):
         self.config = config
         self.model_from_parameters = model_from_parameters
         self.data_loader = data_loader
-        self.reporter = reporter
+        self.reporters = reporters
         self.print_fn = print_fn
 
     @classmethod
@@ -92,7 +93,7 @@ class SweepRunner:
                 targets, predictions = trainer.predict(self.data_loader.get_test_data())
 
                 self.print_fn("Creating report...")
-                metrics = self.reporter(
+                self.reporters(
                     **{
                         "model": model,
                         "targets": targets,
@@ -100,7 +101,6 @@ class SweepRunner:
                         "training_summary": trainer.training_summary,
                     }
                 )
-                wandb.log(metrics)
 
                 path = Path(wandb.run.dir) / "model.pt"
                 torch.save(model, path)

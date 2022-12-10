@@ -1,6 +1,7 @@
 from typing import Sequence
 
 import numpy as np
+import pandas as pd
 
 
 def sliding_window_sum(a: np.array, window_size: int) -> np.array:
@@ -36,3 +37,8 @@ def verify_shape(y_true: np.array, y_pred: np.array) -> None:
     """Verifies if arrays have correct shape for metric computation"""
     if y_true.shape != y_pred.shape:
         raise TypeError(f"Array shapes are different must match! {y_true.shape} != {y_pred.shape}")
+
+
+def stack_arrays(arrays: list[np.array], names: list[str]) -> pd.DataFrame:
+    assert len(arrays) == len(names), f"Lengths of arrays and names must be same! {len(arrays)} != {len(names)}"
+    return pd.DataFrame.from_records(np.column_stack(arrays), columns=names)
