@@ -70,7 +70,10 @@ class SweepRunner:
                 )
 
                 self.print_fn("Starting training...")
-                model = trainer.train(self.data_loader.get_training_data())
+                model = trainer.train(
+                    self.data_loader.get_training_data(),
+                    validation_data_loader=self.data_loader.get_test_data()
+                )
 
                 self.print_fn("Starting predicting...")
                 targets, predictions = trainer.predict(self.data_loader.get_test_data())
