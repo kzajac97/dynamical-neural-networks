@@ -2,14 +2,16 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+import torch
 import wandb
 import yaml
 
-from src.experiment.config import build_callbacks, build_loss_function, build_optimizer
+from src.experiment.config import build_callbacks, build_checkpoints, build_loss_function, build_optimizer
 from src.experiment.data_loaders import AbstractDataLoader
 from src.trainers.regression import TimeSeriesRegressionTrainer
 from src.utils import types
 from src.utils.exceptions import StopSweep
+from src.utils.iterables import collect_keys_with_prefix
 
 
 class SweepRunner:
@@ -49,10 +51,12 @@ class SweepRunner:
                 model = self.model_from_parameters(parameters)
                 self.print_fn("Created model with parameters...")
 
-                optimizer = build_optimizer(model, parameters["optimizer"], parameters.get("optimizer_parameters", {}))
+                optimizer_parameters = collect_keys_with_prefix(parameters, prefix="optimizer_")
+                optimizer = build_optimizer(model, name=parameters["optimizer"], parameters=optimizer_parameters)
                 self.print_fn("Created optimizer...")
 
-                loss = build_loss_function(parameters["loss_function"], parameters.get("loss_function_parameters", {}))
+                loss_fn_params = collect_keys_with_prefix(parameters, prefix="loss_fn_")
+                loss = build_loss_function(name=parameters["loss_function"], parameters=loss_fn_params)
                 self.print_fn("Created loss function...")
 
                 callbacks = build_callbacks(
@@ -60,20 +64,29 @@ class SweepRunner:
                 )
                 self.print_fn("Created callbacks...")
 
+                checkpoints = build_checkpoints(
+                    self.config["checkpoint_parameters"]["names"],
+                    self.config["checkpoint_parameters"]["parameters"],
+                    self.config["checkpoint_parameters"]["restore_from"],
+                )
+                self.print_fn("Created checkpoints...")
+
                 trainer = TimeSeriesRegressionTrainer(
                     model=model,
                     optimizer=optimizer,
                     loss_function=loss,
                     callbacks=callbacks,
+                    checkpoints=checkpoints,
+                    name=wandb.run.name,
                     n_epochs=parameters["n_epochs"],
                     device=self.config["device"],
                 )
 
                 self.print_fn("Starting training...")
-                model = trainer.train(
-                    self.data_loader.get_training_data(),
-                    validation_data_loader=self.data_loader.get_test_data()
+                trainer.train(
+                    self.data_loader.get_training_data(), validation_data_loader=self.data_loader.get_test_data()
                 )
+                model = trainer.post_train()
 
                 self.print_fn("Starting predicting...")
                 targets, predictions = trainer.predict(self.data_loader.get_test_data())
@@ -88,6 +101,12 @@ class SweepRunner:
                     }
                 )
                 wandb.log(metrics)
+
+                path = Path(wandb.run.dir) / "model.pt"
+                torch.save(model, path)
+                self.print_fn(f"Logging model from {path} to WANDB!")
+                wandb.save(str(path))
+
                 self.print_fn("Run finished!")
 
             except Exception as e:

@@ -1,9 +1,9 @@
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Union
 
 import torch
 
-from src.trainers import callbacks
+from src.trainers import callbacks, checkpoints
 
 TORCH_OPTIMIZERS = MappingProxyType(
     {
@@ -37,8 +37,14 @@ CALLBACKS = MappingProxyType(
     {
         "early_stopping": callbacks.EarlyStoppingCallback,
         "regression_report": callbacks.RegressionReportCallback,
-        "torch_checkpoint": callbacks.TorchCheckpointCallback,
         "training_timeout": callbacks.TrainingTimeoutCallback,
+    }
+)
+
+CHECKPOINTS = MappingProxyType(
+    {
+        "simple_model_checkpoint": checkpoints.SimpleModelCheckpoint,
+        "best_model_checkpoint": checkpoints.BestModelCheckpoint,
     }
 )
 
@@ -60,7 +66,7 @@ def build_loss_function(name, parameters: dict[str, Any]) -> torch.nn.modules.lo
     return loss_fn(**parameters)
 
 
-def build_callbacks(names: list[str], parameters: list[dict]) -> list[callbacks.BaseCallback]:
+def build_callbacks(names: list[str], parameters: list[dict]) -> callbacks.CallbackList:
     """
     :param names: list of callback names
     :param parameters: dict of name to callback parameters for given names
@@ -74,4 +80,24 @@ def build_callbacks(names: list[str], parameters: list[dict]) -> list[callbacks.
         assert callback, f"Attempting to use non-existing callback! Supported parameters are: {CALLBACKS.keys()}"
         callbacks_list.append(callback(**parameter_set))
 
-    return callbacks_list
+    return callbacks.CallbackList(callbacks_list)
+
+
+def build_checkpoints(names: list[str], parameters: list[dict], restore_from: Union[str, int]):
+    """
+    :param names: list of callback names
+    :param parameters: dict of name to callback parameters for given names
+    :param restore_from: identifier of checkpoint to restore from, supports two options:
+                         * int - i-th element of the checkpoints list is used to restore model after training
+                         * str - model class with given name is used to restore model after training
+
+    :return: list of build callbacks
+    """
+    checkpoint_list = []
+
+    for name, parameter_set in zip(names, parameters):
+        checkpoint = CHECKPOINTS.get(name)
+        assert checkpoint, f"Attempting to use non-existing callback! Supported parameters are: {CHECKPOINTS.keys()}"
+        checkpoint_list.append(checkpoint(**parameter_set))
+
+    return checkpoints.CheckpointList(checkpoint_list, restore_from=restore_from)

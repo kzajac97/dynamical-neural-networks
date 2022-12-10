@@ -1,48 +1,28 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from functools import cached_property
-from pathlib import Path
 from timeit import default_timer as timer
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
-import torch
 
 from src import utils
-from src.metrics.regression import regression_score
 from src.utils.exceptions import StopTraining
 
 
-@dataclass
-class CallbackParameters:
-    """Dataclass representing parameters passed to callbacks"""
-
-    epoch: int
-    model: torch.nn.Module
-    optimizer: torch.optim.Optimizer
-    loss_function: torch.nn.modules.loss._Loss
-    targets: torch.Tensor
-    predictions: torch.Tensor
-
-
-class BaseCallback(ABC):
-    def __init__(self, run_frequency: int):
+class AbstractCallback(ABC):
+    def __init__(self, run_period: int):
         """
-        :param run_frequency: run frequency in epochs
+        :param run_period: run frequency in epochs
         """
-        self.run_frequency = run_frequency
-
-    def __call__(self, epoch: int, **kwargs: dict[str, Any]) -> None:
-        if epoch % self.run_frequency == 0:
-            self.run(**dict({"epoch": epoch}, **kwargs))  # explicitly append epoch to kwargs
+        self.run_period = run_period
 
     @abstractmethod
-    def run(self, **kwargs: dict[str, Any]) -> None:
+    def __call__(self, epoch: int, metrics: pd.Series) -> None:
         raise NotImplementedError("Cannot call BaseCallback directly!")
 
 
-class EarlyStoppingCallback(BaseCallback):
+class EarlyStoppingCallback(AbstractCallback):
     """
     EarlyStoppingCallback monitors chosen metric (using src.metrics.regression.regression_score keys)
     to send signal to trained when model should stop training based on moving average of values of this metric
@@ -56,20 +36,20 @@ class EarlyStoppingCallback(BaseCallback):
         self,
         metric_name: str,
         moving_average_window_size: int,
-        run_frequency: int = 1,
+        run_period: int = 1,
         patience: Optional[int] = None,
         delta: float = 0.0,
     ):
         """
         :param metric_name: the metric to use for early stopping
         :param moving_average_window_size: window size used in moving average computation
-        :param run_frequency: run frequency in epochs, defaults to 1
+        :param run_period: run frequency in epochs, defaults to 1
         :param patience: number of epochs to wait before stopping
         :param delta: maximal amount on increase in moving average computation, defaults to zero
                       for positive values this allows values of metric to increase
                       for negative values this forces values of metric to decrease by given value
         """
-        super().__init__(run_frequency)
+        super().__init__(run_period)
 
         self.patience = patience
         self.window_size = moving_average_window_size
@@ -91,34 +71,30 @@ class EarlyStoppingCallback(BaseCallback):
         metric_average = utils.numpy.moving_average(metric_values, window_size=self.window_size)
         return np.any(np.diff(metric_average) > self.delta)
 
-    def run(self, targets: torch.Tensor, predictions: torch.Tensor, **kwargs) -> None:
-        targets = utils.tensors.torch_to_flat_array(targets)
-        predictions = utils.tensors.torch_to_flat_array(predictions)
-
-        metrics = regression_score(y_true=targets, y_pred=predictions).to_dict()
+    def __call__(self, epoch: int, metrics: pd.Series) -> None:
         self.metric_values.append(metrics[self.metric_name])
 
         if self.should_stop():
             raise StopTraining  # early stopping reached!
 
 
-class TrainingTimeoutCallback(BaseCallback):
+class TrainingTimeoutCallback(AbstractCallback):
     """
     Callback checks if training exceeded maximal time in seconds
     after each epoch (or multiple epochs, if larger `run_frequency given)
     """
 
-    def __init__(self, max_training_time: int, run_frequency: int = 1):
+    def __init__(self, max_training_time: int, run_period: int = 1):
         """
         :param max_training_time: maximal allowed training time in seconds
-        :param run_frequency: run frequency in epochs, defaults to 1 for larger values
+        :param run_period: run frequency in epochs, defaults to 1 for larger values
         """
-        super().__init__(run_frequency)
+        super().__init__(run_period)
 
         self.max_training_time = max_training_time
         self.start_time = None
 
-    def run(self, epoch: int, **kwargs: dict[str, Any]) -> None:
+    def __call__(self, epoch: int, metrics: pd.Series) -> None:
         if self.start_time is None:
             self.start_time = timer()
 
@@ -127,12 +103,12 @@ class TrainingTimeoutCallback(BaseCallback):
             raise StopTraining
 
 
-class RegressionReportCallback(BaseCallback):
+class RegressionReportCallback(AbstractCallback):
     """Callback prints regression metrics at each epoch"""
 
     def __init__(
         self,
-        run_frequency: int = 1,
+        run_period: int = 1,
         print_fn: Callable[[str], None] = print,
         metric_names: Optional[list[str]] = slice(None),
         precision: int = 4,
@@ -140,14 +116,14 @@ class RegressionReportCallback(BaseCallback):
         separator: str = " ",
     ):
         """
-        :param run_frequency: run frequency in epochs, defaults to 1
+        :param run_period: run frequency in epochs, defaults to 1
         :param print_fn: function to print metrics, defaults to print but loggers or file streams can be used as well
         :param metric_names: Metrics to log, if None logs all regression metrics (see `src.metrics.regression`)
         :param precision: Precision to use when logging the metrics
         :param width: Spacing between logged metrics
         :param separator: The separator to use between logged metrics
         """
-        super().__init__(run_frequency)
+        super().__init__(run_period)
 
         self.print_fn = print_fn
         self.metric_names = metric_names
@@ -163,22 +139,21 @@ class RegressionReportCallback(BaseCallback):
             [f"{metric_name}: {metric:.{self.precision}f}" for metric_name, metric in metrics.to_dict().items()]
         )
 
-    def run(self, epoch: int, targets: torch.Tensor, predictions: torch.Tensor, **kwargs) -> None:
+    def __call__(self, epoch: int, metrics: pd.Series) -> None:
         """Prints all regression metrics as each epoch"""
-        targets = utils.tensors.torch_to_flat_array(targets)
-        predictions = utils.tensors.torch_to_flat_array(predictions)
-
-        metrics = regression_score(y_true=targets, y_pred=predictions)
         self.print_fn(f"Epoch: {epoch}{self.separator * self.width}{self._format_metrics(metrics[self.metric_names])}")
 
 
-class TorchCheckpointCallback(BaseCallback):
-    """Callback saving model and optimizer states at given epoch"""
+class CallbackList:
+    """Abstract aggregator for callbacks"""
 
-    def __init__(self, model_storage_path: Path, run_frequency: int):
-        super().__init__(run_frequency)
-        self.path = model_storage_path
+    def __init__(self, callbacks: list[AbstractCallback]):
+        """
+        :param callbacks: list of created callbacks
+        """
+        self.callbacks = callbacks
 
-    def run(self, epoch: int, model: torch.nn.Module, optimizer: torch.optim.Optimizer, **kwargs) -> None:
-        state = {"epoch": epoch, "state_dict": model.state_dict(), "optimizer": optimizer.state_dict()}
-        torch.save(state, f"{self.path}/state_{epoch}.pt")
+    def __call__(self, epoch: int, metrics: pd.Series) -> None:
+        for callback in self.callbacks:
+            if epoch % callback.run_period == 0:
+                callback(epoch, metrics)
