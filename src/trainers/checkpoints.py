@@ -113,7 +113,7 @@ class BestModelCheckpoint(AbstractCheckpointCreator):
         return torch.load(self.default_path)
 
 
-class CheckpointList:
+class CheckpointHandler:
     """Abstract aggregator of checkpoints"""
 
     def __init__(self, checkpoints: list[AbstractCheckpointCreator], restore_from: Union[int, str]):

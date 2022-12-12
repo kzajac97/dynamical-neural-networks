@@ -7,8 +7,8 @@ import torch.nn
 
 from src import utils
 from src.metrics.regression import regression_score
-from src.trainers.callbacks import CallbackList
-from src.trainers.checkpoints import CheckpointList
+from src.trainers.callbacks import CallbackHandler
+from src.trainers.checkpoints import CheckpointHandler
 from src.utils.exceptions import StopTraining
 from src.utils.types import PrintFunction
 
@@ -26,8 +26,8 @@ class TimeSeriesRegressionTrainer:
         model: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         loss_function: torch.nn.modules.loss._Loss,
-        callbacks: CallbackList,
-        checkpoints: CheckpointList,
+        callback_handler: CallbackHandler,
+        checkpoint_handler: CheckpointHandler,
         n_epochs: int,
         name: Optional[str] = None,
         device: str = "cpu",
@@ -37,7 +37,7 @@ class TimeSeriesRegressionTrainer:
         :param model: model to train
         :param optimizer: optimizer to use for training
         :param loss_function: loss function
-        :param callbacks: list of created callbacks
+        :param callback_handler: list of created callbacks
         :param n_epochs: number of epochs to train for (can be stopped early by callbacks)
         :param name: name of the training run, used to distinguish runs when using SweepRunner
         :param device: torch device, can be `cuda` or `cpu`
@@ -46,8 +46,8 @@ class TimeSeriesRegressionTrainer:
         self.model = model.to(device)
         self.optimizer = optimizer
         self.loss_function = loss_function
-        self.callbacks = callbacks
-        self.checkpoints = checkpoints
+        self.callback_handler = callback_handler
+        self.checkpoint_handler = checkpoint_handler
         self.n_epochs = n_epochs
         self.device = device
         self.print_fn = print_fn
@@ -63,6 +63,7 @@ class TimeSeriesRegressionTrainer:
         return regression_score(y_true=targets, y_pred=predictions)
 
     def predict(self, data_loader: Iterable) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Predict on given data and return targets and predictions as torch"""
         self.model.eval()
         targets, predictions = [], []
 
@@ -76,9 +77,10 @@ class TimeSeriesRegressionTrainer:
             predictions.append(y_pred)
             targets.append(y_true)
 
-        return torch.cat(predictions), torch.cat(targets)
+        return torch.cat(targets), torch.cat(predictions)
 
     def train_epoch(self, data_loader: Iterable) -> None:
+        """Run single epoch of training"""
         self.model.train()
         for x, y in data_loader:
             x = x.to(self.device)  # casting in the loop to save GPU memory
@@ -93,12 +95,22 @@ class TimeSeriesRegressionTrainer:
 
     def post_train(self) -> torch.nn.Module:
         """Run post-training model processing"""
-        if self.checkpoints:
-            return self.checkpoints.restore(self.model)
+        if self.checkpoint_handler:
+            return self.checkpoint_handler.restore(self.model)
 
         return self.model
 
     def train(self, data_loader: Iterable, validation_data_loader: Optional[Iterable] = None) -> None:
+        """
+        Runs model training with simple loop:
+            1. Train single epoch on train dataset
+            2. Predict on validation data, if given or on train data
+            3. Compute metrics on predictions obtained step before
+            4. Run callbacks loop
+            5. Run checkpoints save step
+
+        At any point when exception StopTraining is raised training stops (designed to be used by callbacks)
+        """
         start_time = timer()
         epoch = 0
         self.print_fn(f"Starting training run {self.name}...")
@@ -110,8 +122,8 @@ class TimeSeriesRegressionTrainer:
                 targets, predictions = self.predict(loader)
                 # compute metrics and run callback reporting and checkpointing loops
                 metrics = self.evaluate(targets, predictions)
-                self.callbacks(epoch, metrics)
-                self.checkpoints.save(self.model, epoch, metrics)
+                self.callback_handler(epoch, metrics)
+                self.checkpoint_handler.save(self.model, epoch, metrics)
 
             except StopTraining:
                 self.training_summary = {"epochs": epoch, "training_time": timer() - start_time}

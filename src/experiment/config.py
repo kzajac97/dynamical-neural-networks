@@ -66,7 +66,7 @@ def build_loss_function(name, parameters: dict[str, Any]) -> torch.nn.modules.lo
     return loss_fn(**parameters)
 
 
-def build_callbacks(names: list[str], parameters: list[dict]) -> callbacks.CallbackList:
+def build_callback_handler(names: list[str], parameters: list[dict]) -> callbacks.CallbackHandler:
     """
     :param names: list of callback names
     :param parameters: dict of name to callback parameters for given names
@@ -80,10 +80,10 @@ def build_callbacks(names: list[str], parameters: list[dict]) -> callbacks.Callb
         assert callback, f"Attempting to use non-existing callback! Supported parameters are: {CALLBACKS.keys()}"
         callbacks_list.append(callback(**parameter_set))
 
-    return callbacks.CallbackList(callbacks_list)
+    return callbacks.CallbackHandler(callbacks_list)
 
 
-def build_checkpoints(names: list[str], parameters: list[dict], restore_from: Union[str, int]):
+def build_checkpoint_list(names: list[str], parameters: list[dict], restore_from: Union[str, int]):
     """
     :param names: list of callback names
     :param parameters: dict of name to callback parameters for given names
@@ -100,4 +100,4 @@ def build_checkpoints(names: list[str], parameters: list[dict], restore_from: Un
         assert checkpoint, f"Attempting to use non-existing callback! Supported parameters are: {CHECKPOINTS.keys()}"
         checkpoint_list.append(checkpoint(**parameter_set))
 
-    return checkpoints.CheckpointList(checkpoint_list, restore_from=restore_from)
+    return checkpoints.CheckpointHandler(checkpoint_list, restore_from=restore_from)

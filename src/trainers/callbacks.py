@@ -144,7 +144,7 @@ class RegressionReportCallback(AbstractCallback):
         self.print_fn(f"Epoch: {epoch}{self.separator * self.width}{self._format_metrics(metrics[self.metric_names])}")
 
 
-class CallbackList:
+class CallbackHandler:
     """Abstract aggregator for callbacks"""
 
     def __init__(self, callbacks: list[AbstractCallback]):

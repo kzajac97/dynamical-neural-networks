@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Mapping
 
+import numpy as np
 import plotly.express as px
 import torch
 import wandb
@@ -19,6 +20,7 @@ class AbstractReporter(ABC):
 class RepressionReporter(AbstractReporter):
     @staticmethod
     def compute_regression_metrics(targets: torch.Tensor, predictions: torch.Tensor) -> Mapping:
+        """Compute regression score using `src.metrics`"""
         targets = utils.tensors.torch_to_flat_array(targets)
         predictions = utils.tensors.torch_to_flat_array(predictions)
 
@@ -26,6 +28,7 @@ class RepressionReporter(AbstractReporter):
 
     @staticmethod
     def get_model_summary(model: torch.nn.Module) -> dict[str, Any]:
+        """Get summary of the model parameters"""
         n_trainable_parameters = count_trainable_parameters(model)
         return {"n_trainable_parameters": n_trainable_parameters}
 
@@ -55,20 +58,34 @@ class PredictionPlotReporter(AbstractReporter):
     """Reporter logging predictions of regression model with targets and error"""
 
     def __call__(self, targets: torch.Tensor, predictions: torch.Tensor, **kwargs: dict) -> None:
-        targets = utils.tensors.torch_to_flat_array(targets)
-        predictions = utils.tensors.torch_to_flat_array(predictions)
+        """
+        Logs simple regression plot to WANDB Sweep interface
+        containing plot of real values, model predictions and error
+        """
+        targets = targets.detach().cpu().numpy()
+        predictions = predictions.detach().cpu().numpy()
 
-        figure = px.line(
-            utils.numpy.stack_arrays(
-                arrays=[targets, predictions, targets - predictions], names=["target", "predictions", "error"]
+        for state_dim in range(targets.shape[-1]):
+            dim_targets = targets[:, :, state_dim].flatten()
+            dim_predictions = predictions[:, :, state_dim].flatten()
+            error = np.abs(dim_targets - dim_predictions)
+
+            figure = px.line(
+                utils.numpy.stack_arrays(
+                    arrays=[dim_targets, dim_predictions, error], names=["targets", "predictions", "error"]
+                )
             )
-        )
 
-        wandb.log({"prediction_plot": figure})
+            wandb.log({"prediction_plot": figure})
 
 
 class ReporterList:
+    """Abstract wrapper for running multiple reporters"""
+
     def __init__(self, reporters: list[AbstractReporter]):
+        """
+        :param reporters: list of reporter AbstractReporter subclass instances
+        """
         self.reporters = reporters
 
     def __call__(self, **parameters: dict[str, Any]) -> None:
