@@ -128,6 +128,7 @@ class TimeSeriesRegressionTrainer:
             except StopTraining:
                 self.training_summary = {"epochs": epoch, "training_time": timer() - start_time}
                 self.print_fn(f"Stopping training at {epoch}...")
+                return
 
         self.print_fn("Stopping training after reaching max epochs...")
         self.training_summary = {"epochs": epoch, "training_time": timer() - start_time}
