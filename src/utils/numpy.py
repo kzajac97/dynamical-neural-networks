@@ -1,12 +1,12 @@
 from typing import Sequence
 
 import numpy as np
+import pandas as pd
 
 
 def sliding_window_sum(a: np.array, window_size: int) -> np.array:
     """
     Computes sums over sliding window in given array
-
     :param a: input array
     :param window_size: size of sliding window
 
@@ -18,9 +18,14 @@ def sliding_window_sum(a: np.array, window_size: int) -> np.array:
 
     :return: array with computed sliding window sums
     """
-    if window_size > len(a):
-        raise ValueError(f"Windows size must be smaller than number of elements! {window_size} > {len(a)}!")
-    return np.convolve(a, np.ones(window_size, dtype=int), "valid")
+    assert window_size < len(a), f"Windows size must be smaller than number of elements! {window_size} > {len(a)}!"
+    return np.convolve(a, np.ones(window_size, dtype=int), mode="valid")
+
+
+def moving_average(a: np.array, window_size: int) -> np.array:
+    """Computes moving average of numpy array"""
+    assert window_size < len(a), f"Windows size must be smaller than number of elements! {window_size} > {len(a)}!"
+    return np.convolve(a, np.ones(window_size, dtype=int) / window_size, mode="valid")
 
 
 def cast_to_arrays(y_true: Sequence, y_pred: Sequence) -> tuple:
@@ -32,3 +37,8 @@ def verify_shape(y_true: np.array, y_pred: np.array) -> None:
     """Verifies if arrays have correct shape for metric computation"""
     if y_true.shape != y_pred.shape:
         raise TypeError(f"Array shapes are different must match! {y_true.shape} != {y_pred.shape}")
+
+
+def stack_arrays(arrays: list[np.array], names: list[str]) -> pd.DataFrame:
+    assert len(arrays) == len(names), f"Lengths of arrays and names must be same! {len(arrays)} != {len(names)}"
+    return pd.DataFrame.from_records(np.column_stack(arrays), columns=names)

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from sklearn import metrics
 
-from . import utils
+import src.utils.numpy as utils
 
 
 def regression_report(
