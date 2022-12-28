@@ -1,4 +1,4 @@
-from typing import Any, Callable, TypeVar, Literal
+from typing import Any, Callable, Literal, TypeVar
 
 import torch
 
