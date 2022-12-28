@@ -118,7 +118,7 @@ class SweepRunner:
                     data_loader=self.data_loader.get_training_data(),
                     validation_data_loader=self.data_loader.get_test_data(),
                 )
-                model = trainer.post_train()
+                trainer.post_train()
 
                 self.print_fn("Starting predicting...")
                 targets, predictions = trainer.predict(self.data_loader.get_test_data())

@@ -93,12 +93,17 @@ class TimeSeriesRegressionTrainer:
             loss_value.backward()
             self.optimizer.step()
 
-    def post_train(self) -> torch.nn.Module:
-        """Run post-training model processing"""
+    def post_train(self):
+        """
+        Run post-training model processing, currently does following steps:
+        1. Restore model parameters from checkpoint
+        2. Move model to target device and set eval mode
+        """
         if self.checkpoint_handler:
-            return self.checkpoint_handler.restore(self.model)
+            self.model = self.checkpoint_handler.restore(self.model)
 
-        return self.model
+        self.model = self.model.to(self.device)
+        self.model.eval()
 
     def train(self, data_loader: Iterable, validation_data_loader: Optional[Iterable] = None) -> None:
         """
