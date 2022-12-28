@@ -15,6 +15,7 @@ class FrequencyLinear(torch.nn.Module):
         n_output_state_variables: int,
         param_dtype: torch.dtype = torch.cfloat,
         output_dtype: torch.dtype = torch.float32,
+        use_bias: bool = True,
     ):
         """
         :param n_input_time_steps: number of time steps in the input signal
@@ -25,6 +26,7 @@ class FrequencyLinear(torch.nn.Module):
                             can be complex or real, but for real torch will autocast frequency space to real numbers
                             which causes loss of information, defaults to cfloat
         :param output_dtype: output parameter type, should be real data type, defaults to float32
+        :param use_bias: if True network used bias in linear operation
         """
         super(FrequencyLinear, self).__init__()
 
@@ -44,6 +46,7 @@ class FrequencyLinear(torch.nn.Module):
                 n_input_state_variables=self.n_input_state_variables,
                 n_output_state_variables=self.n_output_state_variables,
                 dtype=self.param_dtype,
+                use_bias=use_bias,
             ),
             RealBackwardFourier(),
         )
